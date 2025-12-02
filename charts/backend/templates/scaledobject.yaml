@@ -1,0 +1,38 @@
+{{- if .Values.hpa.create -}}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "payservice.fullname" . }}
+  labels:
+    {{- include "payservice.labels" . | nindent 4 }}
+    {{- with .Values.hpa.extraLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.hpa.extraAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  scaleTargetRef:
+    name: {{ include "payservice.fullname" . }}
+    kind: Deployment
+  minReplicaCount: {{ .Values.hpa.minReplicas }}
+  maxReplicaCount: {{ .Values.hpa.maxReplicas }}
+  pollingInterval: {{ .Values.hpa.pollingInterval }}
+  triggers:
+    {{- if .Values.hpa.triggers.cpu.enabled }}
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: {{ .Values.hpa.triggers.cpu.value | quote }}
+    {{- end }}
+    {{- if .Values.hpa.triggers.memory.enabled }}
+    - type: memory
+      metricType: Utilization
+      metadata:
+        value: {{ .Values.hpa.triggers.memory.value | quote }}
+    {{- end }}
+    {{- with .Values.hpa.triggers.additionalTriggers }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+{{- end }}

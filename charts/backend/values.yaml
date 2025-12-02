@@ -1,0 +1,180 @@
+app:
+  name: payservice # Used in labelling and naming
+  environment: production # Used in app & otel configuration
+
+serviceAccount:
+  extraLabels: {}
+  extraAnnotations: {}
+  create: true
+  name: "" # Defaults to app.name if empty
+
+deployment:
+  extraLabels: {}
+  extraAnnotations: {}
+  name: "" # Defaults to app.name if empty
+  revisionHistoryLimit: 5
+  replicas: 1 # Ignored when HPA is on
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 5
+      maxUnavailable: 0
+
+service:
+  extraLabels: {}
+  extraAnnotations: {}
+  create: true
+  name: "" # Defaults to app.name if empty
+  type: ClusterIP
+  http:
+    port: 8087
+  prom:
+    port: 9102 # Put in main container if statsd is disabled
+  additionalPorts: []
+
+appConfigMap:
+  extraLabels: {}
+  extraAnnotations: {}
+  create: false
+  name: "" # Defaults to <app.name>-configmap if empty
+  data: {}
+
+appSecret:
+  extraLabels: {}
+  extraAnnotations: {}
+  create: false
+  name: "" # Defaults to <app.name>-secret if empty
+  data: {}
+
+pdb:
+  extraLabels: {}
+  extraAnnotations: {}
+  create: true
+  name: "" # Defaults to <app.name>-pdb if empty
+  minAvailable: 2
+  unhealthyPodEvictionPolicy: IfHealthyBudget
+
+# KEDA HPA
+hpa:
+  extraLabels: {}
+  extraAnnotations: {}
+  create: true
+  maxReplicas: 10
+  minReplicas: 2
+  pollingInterval: 5
+  triggers:
+    cpu:
+      enabled: true
+      value: "70"
+    memory:
+      enabled: true
+      value: "80"
+    additionalTriggers: [] # KEDA trigger format
+
+pod:
+  extraLabels: {}
+  extraAnnotations: {}
+  serviceAccountName: "" # Defaults to serviceAccount.name if empty
+  restartPolicy: Always
+  terminationGracePeriodSeconds: 30
+  affinity: # {}
+    antiAffinity: true
+  securityContext: # {}
+    runAsUser: 1000
+    runAsGroup: 1000
+    runAsNonRoot: true
+    fsGroup: 1000
+
+volumes:
+  additionalVolumes: []
+
+container:
+  image:
+    name: "" # Defaults to app.name if empty
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+    requests:
+      cpu: "250m"
+      memory: "256Mi"
+  preStopSleep: 10 # Sleep duration in seconds before stopping. Set to 0 to disable.
+  probes:
+    liveness:
+      failureThreshold: 2
+      httpGet:
+        path: /ping
+        port: http
+      initialDelaySeconds: 120
+      periodSeconds: 20
+      timeoutSeconds: 3
+    readiness:
+      failureThreshold: 2
+      httpGet:
+        path: /ping
+        port: http
+      initialDelaySeconds: 60
+      periodSeconds: 10
+      timeoutSeconds: 3
+  securityContext: # {}
+    readOnlyRootFilesystem: true
+  config:
+    appEnvironment: "" # Defaults to app.environment if empty
+    ci: true
+    consul:
+      enabled: true
+      host: "consul-server.configuration.svc.cluster.local:8500"
+      kv_prefix: ""
+    otel:
+      enabled: true
+      endpoint: ""
+      exporter:
+        logs: "none"
+        metrics: "none"
+        traces: "none"
+      serviceName: "" # Defaults to app.name if empty
+      tracesSampler: "parentbased_always_off"
+      tracesSamplerArg: "" # Only set if not empty
+    profiler:
+      enabled: true
+      projectName: ""
+      mountPath: /opt/cprof/gcp_profiler_creds.json
+      version: "1.0.0"
+      serviceName: "" # Defaults to app.name if empty
+      zone: "zone" # GCP zone name
+      heapSampling: true
+    java:
+      enabled: true
+      profilerConfig: ""
+      memory:
+        maxRAM: "75.0"
+        initialRAM: "75.0"
+        g1gc: true
+      otherOptions: "" # Example: "-XX:+SomeOtherFlag"
+  envMounts:
+    secret: ""
+    appConfig: ""
+  additionalEnvs: {} # Format: { key1: value1, key2: value2 }
+  additionalEnvMounts: [] # Format is same as envFrom array
+  additionalVolumeMounts: []
+
+prometheus:
+  enabled: true # Adds prometheus annotations to pod
+
+statsd:
+  enabled: true
+  image:
+    name: prom/statsd-exporter
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: "100m"
+      memory: "128Mi"
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+  # -- The TTL value for the last balance metric. Leave empty to disable.
+  balanceTtl: ""

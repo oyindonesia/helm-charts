@@ -1,0 +1,15 @@
+{{- if and .Values.statsd.enabled .Values.statsd.balanceTtl -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "payservice.fullname" . }}-statsd-config
+  labels:
+    {{- include "payservice.labels" . | nindent 4 }}
+data:
+  statsd-config.yaml: |
+    mappings:
+      - match: "(.*_LAST_BALANCE_.*)"
+        match_type: regex
+        name: "$1"
+        ttl: {{ .Values.statsd.balanceTtl | quote }}
+{{- end }}

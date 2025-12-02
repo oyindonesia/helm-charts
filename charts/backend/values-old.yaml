@@ -1,0 +1,231 @@
+appName: payservice
+
+# -- Number of replicas if HPA is disabled
+replicas: 3
+revisionHistoryLimit: 3
+
+# -- Service account configuration
+serviceAccount:
+  create: true
+  name: "" # Defaults to appName
+  annotations: {}
+
+# -- App-level configmap
+appConfigMap:
+  enabled: true
+  create: false
+  name: "" # Defaults to <appName>-configmap
+  data: {}
+    # key: value
+    # another-key: |
+    #   multiline value
+
+# -- App-level secret
+appSecret:
+  enabled: true # Set to true with create as false if externally managed e.g. via Kustomize
+  create: false
+  name: "" # Defaults to <appName>-secret
+  data: {}
+    # key: value
+    # another-key: |
+    #   multiline value
+
+# -- Service configuration
+service:
+  type: ClusterIP
+  http:
+    port: 8087
+  prom:
+    port: 9102 # Port for prometheus/statsd-exporter
+  additionalPorts: []
+    # - name: another-port
+    #   port: 1234
+
+# -- Deployment strategy (only used if hpa.enabled is false)
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 5
+    maxUnavailable: 0
+
+# -- Pod Disruption Budget
+pdb:
+  enabled: true
+  minAvailable: 2
+  unhealthyPodEvictionPolicy: IfHealthyBudget
+
+# -- Horizontal Pod Autoscaler (KEDA)
+hpa:
+  enabled: true
+  minReplicas: 3
+  maxReplicaCount: 10
+  pollingInterval: 1
+  triggers:
+    cpu:
+      enabled: true
+      value: "60"
+    memory:
+      enabled: true
+      value: "70"
+    additionalTriggers: []
+      # - type: cron
+      #   metadata:
+      #     timezone: Asia/Jakarta
+      #     start: 0 18 * * *
+      #     end: 0 0 * * *
+      #     desiredReplicas: "8"
+
+# -- Pod-level security context
+podSecurityContext:
+  {}
+  # fsGroup: 1000
+
+# -- Container-level security context
+containerSecurityContext:
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# -- Main application container configuration
+image:
+  name: payservice
+  tag: latest
+  pullPolicy: IfNotPresent
+resources:
+  limits:
+    cpu: 8700m
+    memory: 13500Mi
+  requests:
+    cpu: 8700m
+    memory: 13500Mi
+
+# -- Probes configuration
+probes:
+  liveness:
+    failureThreshold: 2
+    httpGet:
+      path: /ping
+      port: http
+    initialDelaySeconds: 120
+    periodSeconds: 20
+    timeoutSeconds: 15
+  readiness:
+    failureThreshold: 2
+    httpGet:
+      path: /ping
+      port: http
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 15
+
+# -- Lifecycle hooks
+lifecycle:
+  preStop:
+    exec:
+      command:
+        - /bin/sh
+        - -c
+        - sleep 10
+
+terminationGracePeriodSeconds: 180
+
+# -- Pod Affinity
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+            - key: app
+              operator: In
+              values:
+                - payservice
+        topologyKey: kubernetes.io/hostname
+
+# -- Additional volumes and volume mounts
+additionalVolumes: []
+  # - name: shared-data
+  #   emptyDir: {}
+additionalVolumeMounts: []
+  # - name: shared-data
+  #   mountPath: /data
+
+# -- Environment variable configurations
+envConfig:
+  # -- AWS configuration
+  aws:
+    enabled: true
+    region: ap-southeast-1
+  # -- Consul configuration
+  consul:
+    enabled: true
+    host: ""
+    port: "8500"
+    kv_prefix: "prod/{{ .Values.appName }}/"
+  # -- OpenTelemetry configuration
+  otel:
+    enabled: true
+    endpoint: ""
+    logs_exporter: "none"
+    metrics_exporter: "none"
+    traces_exporter: "otlp"
+    service_name: "{{ .Values.appName }}"
+    environment: "production"
+    traces_sampler: "parentbased_always_off"
+    traces_sampler_arg: "" # Only set if exists
+  # -- GCP Profiler configuration
+  # -- Ensure a secret containing gcp_profiler_creds.json is created if enabled
+  gcpProfiler:
+    enabled: true
+    project_name: ""
+    secretName: "" # Defaults to <appName>-secret
+    mountPath: /opt/gcp_profiler/gcp_profiler_creds.json
+  # -- Java configuration
+  java:
+    profiler_agent_config: "" # Example: "-cprof_service_version=1.0.6,-cprof_service=myservice"
+    tool_options:
+      initial_ram_percentage: "60.0"
+      max_ram_percentage: "60.0"
+      min_ram_percentage: "60.0"
+      g1gc: true
+      extra_ops: "" # Example: "-XX:+SomeOtherFlag"
+  
+  # -- Mandatory environment variables
+  # These keys will always be present, but their values can be configured here.
+  mandatoryEnv:
+    MEM_TOTAL_MB:
+      valueFrom:
+        resourceFieldRef:
+          resource: limits.memory
+    APP_ENVIRONMENT: "production"
+    CI: "true"
+
+  # -- Extra, optional environment variables
+  extraEnv: {}
+    # SOME_VAR: "some-value"
+    # ANOTHER_VAR:
+    #   valueFrom:
+    #     secretKeyRef:
+    #       name: my-secret
+    #       key: my-key
+
+# -- Prometheus / statsd-exporter sidecar configuration
+prometheus:
+  enabled: true
+statsd:
+  enabled: true
+  image:
+    name: prom/statsd-exporter
+    tag: latest
+    pullPolicy: IfNotPresent
+  resources:
+    limits:
+      cpu: 310m
+      memory: 500Mi
+    requests:
+      cpu: 310m
+      memory: 500Mi
+  # -- Statsd TTL config
+  ttlConfig:
+    enabled: false
+    # -- The TTL value for the last balance metric
+    ttl: "5m"

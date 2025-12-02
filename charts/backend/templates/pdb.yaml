@@ -1,0 +1,21 @@
+{{- if .Values.pdb.create -}}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ default (printf "%s-pdb" (include "payservice.fullname" .)) .Values.pdb.name }}
+  labels:
+    {{- include "payservice.labels" . | nindent 4 }}
+    {{- with .Values.pdb.extraLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.pdb.extraAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  minAvailable: {{ .Values.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "payservice.selectorLabels" . | nindent 6 }}
+  unhealthyPodEvictionPolicy: {{ .Values.pdb.unhealthyPodEvictionPolicy }}
+{{- end }}

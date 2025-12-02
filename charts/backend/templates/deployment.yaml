@@ -1,0 +1,235 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ default (include "payservice.fullname" .) .Values.deployment.name }}
+  labels:
+    {{- include "payservice.labels" . | nindent 4 }}
+    {{- with .Values.deployment.extraLabels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.deployment.extraAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  revisionHistoryLimit: {{ .Values.deployment.revisionHistoryLimit }}
+  {{- if not .Values.hpa.create }}
+  replicas: {{ .Values.deployment.replicas }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "payservice.selectorLabels" . | nindent 6 }}
+  strategy:
+    {{- toYaml .Values.deployment.strategy | nindent 4 }}
+  template:
+    metadata:
+      annotations:
+        {{- if .Values.prometheus.enabled }}
+        prometheus.io/scrape: "true"
+        {{- if .Values.statsd.enabled }}
+        prometheus.io/port: "9102"
+        {{- else }}
+        prometheus.io/port: {{ .Values.service.prom.port | quote }}
+        {{- end }}
+        {{- end }}
+        {{- with .Values.pod.extraAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "payservice.labels" . | nindent 8 }}
+        {{- with .Values.pod.extraLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "payservice.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.pod.securityContext | nindent 8 }}
+      restartPolicy: {{ .Values.pod.restartPolicy }}
+      terminationGracePeriodSeconds: {{ .Values.pod.terminationGracePeriodSeconds }}
+      {{- if .Values.pod.affinity.antiAffinity }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values:
+                - {{ .Values.app.name }}
+            topologyKey: kubernetes.io/hostname
+      {{- end }}
+      containers:
+        - name: {{ default (include "payservice.fullname" .) .Values.container.image.name }}
+          securityContext:
+            {{- toYaml .Values.container.securityContext | nindent 12 }}
+          image: "{{ default .Values.app.name .Values.container.image.name }}:{{ .Values.container.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.container.image.pullPolicy }}
+          {{- if and .Values.container.preStopSleep (gt (int .Values.container.preStopSleep) 0) }}
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - sleep {{ .Values.container.preStopSleep }}
+          {{- end }}
+          {{- with .Values.container.probes }}
+          livenessProbe:
+            {{- toYaml .liveness | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .readiness | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.http.port }}
+              protocol: TCP
+            {{- if not .Values.statsd.enabled }}
+            - name: prom
+              containerPort: {{ .Values.service.prom.port }}
+              protocol: TCP
+            {{- end }}
+          {{- with .Values.container.envMounts }}
+          envFrom:
+            {{- if .secret }}
+            - secretRef:
+                name: {{ .secret }}
+            {{- end }}
+            {{- if .appConfig }}
+            - configMapRef:
+                name: {{ .appConfig }}
+            {{- end }}
+          {{- end }}
+          {{- with .Values.container.additionalEnvMounts }}
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          env:
+            - name: APP_ENVIRONMENT
+              value: {{ default .Values.app.environment .Values.container.config.appEnvironment | quote }}
+            {{- range $key, $value := .Values.container.additionalEnvs }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+            {{- if .Values.container.config.ci }}
+            - name: CI
+              value: "true"
+            {{- end }}
+            {{- if .Values.container.config.consul.enabled }}
+            - name: CONSUL_HOST
+              value: {{ .Values.container.config.consul.host | splitList ":" | first }}
+            - name: CONSUL_PORT
+              value: {{ .Values.container.config.consul.host | splitList ":" | last | quote }}
+            {{- if .Values.container.config.consul.kv_prefix }}
+            - name: CONSUL_KV_PREFIX
+              value: {{ .Values.container.config.consul.kv_prefix }}
+            {{- end }}
+            {{- end }}
+            {{- if .Values.container.config.otel.enabled }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.container.config.otel.endpoint }}
+            - name: OTEL_LOGS_EXPORTER
+              value: {{ .Values.container.config.otel.exporter.logs }}
+            - name: OTEL_METRICS_EXPORTER
+              value: {{ .Values.container.config.otel.exporter.metrics }}
+            - name: OTEL_SERVICE_NAME
+              value: {{ default (include "payservice.fullname" .) .Values.container.config.otel.serviceName }}
+            - name: OTEL_TRACES_SAMPLER
+              value: {{ .Values.container.config.otel.tracesSampler }}
+            {{- if .Values.container.config.otel.tracesSamplerArg }}
+            - name: OTEL_TRACES_SAMPLER_ARG
+              value: {{ .Values.container.config.otel.tracesSamplerArg }}
+            {{- end }}
+            {{- end }}
+            {{- if .Values.container.config.profiler.enabled }}
+            - name: PROFILER_PROJECT_NAME
+              value: {{ .Values.container.config.profiler.projectName }}
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: {{ .Values.container.config.profiler.mountPath }}
+            {{- end }}
+            {{- if .Values.container.config.java.enabled }}
+            - name: JAVA_TOOL_OPTIONS
+              value: >-
+                {{ if .Values.container.config.java.memory.initialRAM }}-XX:InitialRAMPercentage={{ .Values.container.config.java.memory.initialRAM }} {{ end }}
+                {{- if .Values.container.config.java.memory.maxRAM }}-XX:MaxRAMPercentage={{ .Values.container.config.java.memory.maxRAM }} {{ end }}
+                {{- if .Values.container.config.java.memory.g1gc }}-XX:+UseG1GC {{ end }}
+                {{- if .Values.container.config.java.otherOptions }}{{ .Values.container.config.java.otherOptions }} {{ end }}
+                {{- if .Values.container.config.profiler.enabled }}-agentpath:/profiler_java_agent.so=-cprof_service_version={{ .Values.container.config.profiler.version }},-cprof_enable_heap_sampling={{ .Values.container.config.profiler.heapSampling }},-cprof_service={{ default (include "payservice.fullname" .) .Values.container.config.profiler.serviceName }},-cprof_zone_name={{ .Values.container.config.profiler.zone }},-logtostderr,-cprof_project_id={{ .Values.container.config.profiler.projectName }} {{ end }}
+                {{- if .Values.container.config.java.profilerConfig }}{{ .Values.container.config.java.profilerConfig }}{{ end }}
+            {{- end }}
+            {{- if .Values.container.resources.limits.memory }}
+            - name: MEM_TOTAL_MB
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.memory
+            {{- end }}
+          resources:
+            {{- toYaml .Values.container.resources | nindent 12 }}
+          volumeMounts:
+            - mountPath: /tmp
+              name: tmp-data
+            {{- if .Values.container.config.profiler.enabled }}
+            - mountPath: {{ .Values.container.config.profiler.mountPath }}
+              name: profiler-secret-volume
+              subPath: gcp_profiler_creds.json
+              readOnly: true
+            {{- end }}
+            {{- if .Values.statsd.enabled }}
+            - mountPath: /etc/statsd-exporter/statsd-config.yaml
+              name: statsd-config
+              subPath: statsd-config.yaml
+              readOnly: true
+            {{- end }}
+            {{- with .Values.container.additionalVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+        {{- if .Values.statsd.enabled }}
+        - name: statsd-exporter
+          image: "{{ .Values.statsd.image.name }}:{{ .Values.statsd.image.tag }}"
+          imagePullPolicy: {{ .Values.statsd.image.pullPolicy }}
+          {{- if .Values.statsd.balanceTtl }}
+          args:
+            - --statsd.mapping-config=/etc/statsd-exporter/statsd-config.yaml
+          {{- end }}
+          ports:
+            - name: statsd-http
+              containerPort: 9102
+              protocol: TCP
+            - name: statsd-udp
+              containerPort: 9125
+              protocol: UDP
+            - name: statsd-tcp
+              containerPort: 9125
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.statsd.resources | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.statsd.balanceTtl }}
+            - mountPath: /etc/statsd-exporter/statsd-config.yaml
+              name: statsd-config
+              subPath: statsd-config.yaml
+              readOnly: true
+            {{- end }}
+        {{- end }}
+      volumes:
+        - name: tmp-data
+          emptyDir: {}
+        {{- if .Values.container.config.profiler.enabled }}
+        - name: profiler-secret-volume
+          secret:
+            secretName: {{ default (printf "%s-secret" (include "payservice.fullname" .)) .Values.appSecret.name }}
+            items:
+              - key: gcp_profiler_creds.json
+                path: gcp_profiler_creds.json
+        {{- end }}
+        {{- if and .Values.statsd.enabled .Values.statsd.balanceTtl }}
+        - name: statsd-config
+          configMap:
+            name: {{ include "payservice.fullname" . }}-statsd-config
+        {{- end }}
+        {{- with .Values.volumes.additionalVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+
