@@ -1,0 +1,37 @@
+app:
+  name: appName
+
+pdb:
+  create: true
+  minAvailable: 2
+
+hpa:
+  create: true
+
+pod:
+  terminationGracePeriodSeconds: 90
+  affinity:
+    antiAffinity: true
+
+container:
+  image:
+    name: "" # Set to prod image name
+    tag: "production"
+  resources:
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+    requests:
+      cpu: "500m"
+      memory: "512Mi"
+  config:
+    consul:
+      kv_prefix: ""
+    otel:
+      endpoint: ""
+      tracesSampler: "parentbased_always_off"
+    profiler:
+      projectName: ""
+  envMounts: # Usually (but not automatically) set to appname-secret & appname-configmap
+    secret: ""
+    appConfig: ""

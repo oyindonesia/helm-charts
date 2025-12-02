@@ -1,6 +1,6 @@
 app:
   name: payservice # Used in labelling and naming
-  environment: production # Used in app & otel configuration
+  environment: development # Used in app & otel configuration
 
 serviceAccount:
   extraLabels: {}
@@ -49,7 +49,7 @@ appSecret:
 pdb:
   extraLabels: {}
   extraAnnotations: {}
-  create: true
+  create: false
   name: "" # Defaults to <app.name>-pdb if empty
   minAvailable: 2
   unhealthyPodEvictionPolicy: IfHealthyBudget
@@ -58,7 +58,7 @@ pdb:
 hpa:
   extraLabels: {}
   extraAnnotations: {}
-  create: true
+  create: false
   maxReplicas: 10
   minReplicas: 2
   pollingInterval: 5
@@ -78,7 +78,7 @@ pod:
   restartPolicy: Always
   terminationGracePeriodSeconds: 30
   affinity: # {}
-    antiAffinity: true
+    antiAffinity: false
   securityContext: # {}
     runAsUser: 1000
     runAsGroup: 1000
@@ -95,11 +95,11 @@ container:
     pullPolicy: IfNotPresent
   resources:
     limits:
-      cpu: "500m"
+      cpu: "250m"
       memory: "512Mi"
     requests:
-      cpu: "250m"
-      memory: "256Mi"
+      cpu: "50m"
+      memory: "128Mi"
   preStopSleep: 10 # Sleep duration in seconds before stopping. Set to 0 to disable.
   probes:
     liveness:
@@ -133,7 +133,7 @@ container:
       exporter:
         logs: "none"
         metrics: "none"
-        traces: "none"
+        traces: "otlp"
       serviceName: "" # Defaults to app.name if empty
       tracesSampler: "parentbased_always_off"
       tracesSamplerArg: "" # Only set if not empty
@@ -153,7 +153,7 @@ container:
         initialRAM: "75.0"
         g1gc: true
       otherOptions: "" # Example: "-XX:+SomeOtherFlag"
-  envMounts:
+  envMounts: # Usually (but not automatically) set to appname-secret & appname-configmap
     secret: ""
     appConfig: ""
   additionalEnvs: {} # Format: { key1: value1, key2: value2 }
@@ -171,10 +171,10 @@ statsd:
     pullPolicy: IfNotPresent
   resources:
     limits:
-      cpu: "100m"
-      memory: "128Mi"
+      cpu: "20m"
+      memory: "20Mi"
     requests:
-      cpu: "50m"
-      memory: "64Mi"
+      cpu: "20m"
+      memory: "20Mi"
   # -- The TTL value for the last balance metric. Leave empty to disable.
   balanceTtl: ""

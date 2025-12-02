@@ -155,7 +155,6 @@ spec:
                 {{- if .Values.container.config.java.memory.g1gc }}-XX:+UseG1GC {{ end }}
                 {{- if .Values.container.config.java.otherOptions }}{{ .Values.container.config.java.otherOptions }} {{ end }}
                 {{- if .Values.container.config.profiler.enabled }}-agentpath:/profiler_java_agent.so=-cprof_service_version={{ .Values.container.config.profiler.version }},-cprof_enable_heap_sampling={{ .Values.container.config.profiler.heapSampling }},-cprof_service={{ default (include "payservice.fullname" .) .Values.container.config.profiler.serviceName }},-cprof_zone_name={{ .Values.container.config.profiler.zone }},-logtostderr,-cprof_project_id={{ .Values.container.config.profiler.projectName }} {{ end }}
-                {{- if .Values.container.config.java.profilerConfig }}{{ .Values.container.config.java.profilerConfig }}{{ end }}
             {{- end }}
             {{- if .Values.container.resources.limits.memory }}
             - name: MEM_TOTAL_MB

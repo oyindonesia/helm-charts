@@ -1,0 +1,17 @@
+app:
+  name: appName
+
+container:
+  image:
+    name: "" # Set to dev image name
+  config:
+    consul:
+      kv_prefix: ""
+    otel:
+      endpoint: ""
+      tracesSampler: "parentbased_always_off"
+    profiler:
+      projectName: ""
+  envMounts: # Usually (but not automatically) set to appname-secret & appname-configmap
+    secret: ""
+    appConfig: ""
