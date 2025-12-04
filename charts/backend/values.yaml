@@ -1,6 +1,7 @@
 app:
   name: payservice # Used in labelling and naming
   environment: development # Used in app & otel configuration
+  overlay: ""
 
 serviceAccount:
   extraLabels: {}
@@ -135,6 +136,7 @@ container:
         metrics: "none"
         traces: "otlp"
       serviceName: "" # Defaults to app.name if empty
+      environment: "" # Defaults to app.environment if empty
       tracesSampler: "parentbased_always_off"
       tracesSamplerArg: "" # Only set if not empty
     profiler:
@@ -147,7 +149,7 @@ container:
       heapSampling: true
     java:
       enabled: true
-      profilerConfig: ""
+      profilerConfig: "" # Extra configs for GCP profiler. Example: "-cprof_force_debug_non_safepoints=false,-cprof_wall_num_threads_cutoff=0"
       memory:
         maxRAM: "75.0"
         initialRAM: "75.0"

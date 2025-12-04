@@ -134,6 +134,8 @@ spec:
               value: {{ .Values.container.config.otel.exporter.traces }}
             - name: OTEL_SERVICE_NAME
               value: {{ default (include "payservice.fullname" .) .Values.container.config.otel.serviceName }}
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: deployment.environment={{ default .Values.app.environment .Values.container.config.otel.environment | quote }}
             - name: OTEL_TRACES_SAMPLER
               value: {{ .Values.container.config.otel.tracesSampler }}
             {{- if .Values.container.config.otel.tracesSamplerArg }}
@@ -154,7 +156,7 @@ spec:
                 {{- if .Values.container.config.java.memory.maxRAM }}-XX:MaxRAMPercentage={{ .Values.container.config.java.memory.maxRAM }} {{ end }}
                 {{- if .Values.container.config.java.memory.g1gc }}-XX:+UseG1GC {{ end }}
                 {{- if .Values.container.config.java.otherOptions }}{{ .Values.container.config.java.otherOptions }} {{ end }}
-                {{- if .Values.container.config.profiler.enabled }}-agentpath:/profiler_java_agent.so=-cprof_service_version={{ .Values.container.config.profiler.version }},-cprof_enable_heap_sampling={{ .Values.container.config.profiler.heapSampling }},-cprof_service={{ default (include "payservice.fullname" .) .Values.container.config.profiler.serviceName }},-cprof_zone_name={{ .Values.container.config.profiler.zone }},-logtostderr,-cprof_project_id={{ .Values.container.config.profiler.projectName }} {{ end }}
+                {{- if .Values.container.config.profiler.enabled }}-agentpath:/profiler_java_agent.so=-cprof_service_version={{ .Values.container.config.profiler.version }},-cprof_enable_heap_sampling={{ .Values.container.config.profiler.heapSampling }},-cprof_service={{ default (include "payservice.fullname" .) .Values.container.config.profiler.serviceName }},-cprof_zone_name={{ .Values.container.config.profiler.zone }},-logtostderr,-cprof_project_id={{ .Values.container.config.profiler.projectName }}{{- if .Values.container.config.java.profilerConfig }},{{ .Values.container.config.java.profilerConfig }}{{ end }} {{ end }}
             {{- end }}
             {{- if .Values.container.resources.limits.memory }}
             - name: MEM_TOTAL_MB

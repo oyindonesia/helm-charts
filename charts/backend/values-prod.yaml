@@ -32,6 +32,7 @@ container:
       tracesSampler: "parentbased_always_off"
     profiler:
       projectName: ""
+      zone: ""
   envMounts: # Usually (but not automatically) set to appname-secret & appname-configmap
     secret: ""
     appConfig: ""
