@@ -103,12 +103,17 @@ container:
       memory: "128Mi"
   preStopSleep: 10 # Sleep duration in seconds before stopping. Set to 0 to disable.
   probes:
+    startup:
+      failureThreshold: 30
+      httpGet:
+        path: /ping
+        port: http
+      timeoutSeconds: 10
     liveness:
       failureThreshold: 2
       httpGet:
         path: /ping
         port: http
-      initialDelaySeconds: 120
       periodSeconds: 20
       timeoutSeconds: 3
     readiness:
@@ -116,7 +121,6 @@ container:
       httpGet:
         path: /ping
         port: http
-      initialDelaySeconds: 60
       periodSeconds: 10
       timeoutSeconds: 3
   securityContext: # {}

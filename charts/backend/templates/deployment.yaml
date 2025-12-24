@@ -74,6 +74,8 @@ spec:
                   - sleep {{ .Values.container.preStopSleep }}
           {{- end }}
           {{- with .Values.container.probes }}
+          startupProbe:
+            {{- toYaml .startup | nindent 12 }}
           livenessProbe:
             {{- toYaml .liveness | nindent 12 }}
           readinessProbe:
