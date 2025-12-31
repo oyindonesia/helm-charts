@@ -40,12 +40,14 @@ appConfigMap:
   name: "" # Defaults to <app.name>-configmap if empty
   data: {}
 
+# Uses SealedSecret. All data must be encrypted with Kubeseal or Webseal
 appSecret:
   extraLabels: {}
   extraAnnotations: {}
   create: false
   name: "" # Defaults to <app.name>-secret if empty
-  data: {}
+  # Encrypted secret data
+  encryptedData: {}
 
 pdb:
   extraLabels: {}
