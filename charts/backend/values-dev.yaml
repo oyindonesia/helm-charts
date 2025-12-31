@@ -1,6 +1,11 @@
 app:
   name: appName
 
+# Uses SealedSecret. All data must be encrypted with Kubeseal or Webseal
+appSecret:
+  create: true
+  encryptedData: {}
+
 container:
   image:
     name: "" # Set to dev image name
