@@ -48,6 +48,11 @@ appSecret:
   name: "" # Defaults to <app.name>-secret if empty
   # Encrypted secret data
   encryptedData: {}
+  # Plaintext secret data. NOT BASE64 ENCODED. Will be encoded by the SealedSecrets controller.
+  # Example:
+  # data:
+  #   DB_PASSWORD: "meow"
+  data: {}
 
 pdb:
   extraLabels: {}
